@@ -51,6 +51,8 @@ internal sealed class QuietButton : Button
         Cursor = Cursors.Hand;
         FlatStyle = FlatStyle.Flat;
         FlatAppearance.BorderSize = 0;
+        UseVisualStyleBackColor = false;
+        BackColor = Theme.Background;
         Font = new Font("Segoe UI", 9.5f);
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
         AccessibleName = text;
@@ -58,9 +60,11 @@ internal sealed class QuietButton : Button
 
     protected override void OnMouseEnter(EventArgs e) { hover = true; Invalidate(); base.OnMouseEnter(e); }
     protected override void OnMouseLeave(EventArgs e) { hover = false; Invalidate(); base.OnMouseLeave(e); }
+    protected override void OnPaintBackground(PaintEventArgs e) { e.Graphics.Clear(Parent == null ? Theme.Background : Parent.BackColor); }
     protected override void OnPaint(PaintEventArgs e)
     {
         var g = e.Graphics;
+        g.Clear(Parent == null ? Theme.Background : Parent.BackColor);
         g.SmoothingMode = SmoothingMode.AntiAlias;
         var rect = new RectangleF(1, 1, Width - 2, Height - 2);
         using (var shape = Theme.Round(rect, 9))
@@ -193,7 +197,7 @@ internal sealed class UsagePanel : Form
         startup = new CheckBox { Text = "Iniciar con Windows", Bounds = new Rectangle(26, 580, 182, 22), ForeColor = Theme.Muted, Font = new Font("Segoe UI", 9), Cursor = Cursors.Hand, AutoSize = false };
         startup.CheckedChanged += (s, e) => { if (!updating && StartupChanged != null) StartupChanged(this, EventArgs.Empty); };
         Controls.Add(startup);
-        var settings = new LinkLabel { Text = "Configurar Codex", LinkColor = Theme.Muted, ActiveLinkColor = Theme.Text, VisitedLinkColor = Theme.Muted, Bounds = new Rectangle(252, 581, 172, 22), TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 9) };
+        var settings = new LinkLabel { Text = "Opciones", LinkColor = Theme.Muted, ActiveLinkColor = Theme.Text, VisitedLinkColor = Theme.Muted, Bounds = new Rectangle(252, 581, 172, 22), TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 9) };
         settings.LinkClicked += (s, e) => { if (CodexRequested != null) CodexRequested(this, EventArgs.Empty); };
         Controls.Add(settings);
         MouseDown += DragHeader;
@@ -229,7 +233,7 @@ internal sealed class UsagePanel : Form
         using (var pen = new Pen(Theme.Border)) e.Graphics.DrawPath(pen, path);
     }
 
-    internal void UpdateUsage(WindowLimit primary, WindowLimit weekly, bool current, string plan, string error, DateTime updated, bool busy)
+    internal void UpdateUsage(WindowLimit primary, WindowLimit weekly, bool current, string plan, string error, DateTime updated, bool busy, bool? runtimeReady = null)
     {
         five.Limit = primary;
         five.Current = current;
@@ -241,12 +245,24 @@ internal sealed class UsagePanel : Form
         week.Invalidate();
         account.Text = current ? "Plan " + (string.IsNullOrEmpty(plan) ? "ChatGPT" : CultureInfo.InvariantCulture.TextInfo.ToTitleCase(plan)) + "  ·  Cuenta conectada" : "Conecta tu cuenta de ChatGPT";
         status.Text = busy ? "Actualizando límites…" : current ? "Actualizado a las " + updated.ToLocalTime().ToString("HH:mm:ss") + "  ·  Cada 30 s" : "Sin datos actuales";
-        notice.Text = error ?? "Los círculos y las barras muestran el porcentaje usado.";
+        bool ready = runtimeReady ?? CodexSetup.IsReady();
+        notice.Text = !ready ? "La primera vez prepararemos Codex automáticamente.\nDescarga oficial, sin terminal ni permisos de administrador." : error ?? "Los círculos y las barras muestran el porcentaje usado.";
         notice.ForeColor = error == null ? Theme.Muted : Color.FromArgb(229, 190, 137);
         refresh.Enabled = !busy;
         refresh.Text = busy ? "Actualizando…" : "Actualizar";
         login.Enabled = !busy;
-        login.Text = current ? "Cambiar cuenta" : "Conectar cuenta";
+        login.Text = current ? "Cambiar cuenta" : ready ? "Conectar cuenta" : "Preparar y conectar";
+    }
+
+    internal void UpdatePreparation(string message)
+    {
+        status.Text = message;
+        notice.Text = "La descarga se guarda en tu perfil y se verifica con SHA-256.\nPuedes cancelar y volver a intentarlo cuando quieras.";
+        notice.ForeColor = Theme.Muted;
+        refresh.Text = "Cancelar";
+        refresh.Enabled = true;
+        login.Text = "Preparando…";
+        login.Enabled = false;
     }
 
     internal void SaveImage(string path)

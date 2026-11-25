@@ -81,10 +81,13 @@ sealed class Rings : ApplicationContext {
     [DllImport("user32.dll")] static extern bool SetProcessDPIAware();
     readonly TrayMessages host=new TrayMessages();readonly NativeRing five,week;readonly ContextMenuStrip menu=new ContextMenuStrip();readonly System.Windows.Forms.Timer refresh=new System.Windows.Forms.Timer {Interval=30000};readonly System.Windows.Forms.Timer freshness=new System.Windows.Forms.Timer {Interval=250};
     readonly TaskbarGlyph fiveGlyph=new TaskbarGlyph(),weekGlyph=new TaskbarGlyph();
+    CancellationTokenSource setupCancellation;string preparation;
     readonly uint taskbarCreated;readonly bool diagnostics;CodexClient client;WindowLimit primary,weekly;DateTime fetched=DateTime.MinValue;string error="Conectando con Codex…",plan="";bool busy,closing,lastFresh;UsagePanel details;
     bool Fresh {get{return fetched!=DateTime.MinValue&&DateTime.UtcNow-fetched<TimeSpan.FromMinutes(2)&&error==null;}}
     public Rings(bool diag,bool show){diagnostics=diag;taskbarCreated=RegisterWindowMessage("TaskbarCreated");var handle=host.Handle;five=new NativeRing(handle,1,"632ace1f-ae89-46f0-b2ea-1df3551c9b51");week=new NativeRing(handle,2,"632ace1f-ae89-46f0-b2ea-1df3551c9b52");
-        menu.Items.Add("Ver límites de Codex",null,(s,e)=>OpenDetails());menu.Items.Add("Actualizar",null,async(s,e)=>await Fetch());menu.Items.Add("Iniciar sesión / cambiar cuenta",null,async(s,e)=>await Login());menu.Items.Add(new ToolStripSeparator());menu.Items.Add("Configuración de iconos de Windows",null,(s,e)=>Process.Start(new ProcessStartInfo("ms-settings:taskbar"){UseShellExecute=true}));menu.Items.Add("Seleccionar codex.exe",null,(s,e)=>ChooseCodex());menu.Items.Add("Cerrar Codex Rings",null,(s,e)=>ExitThread());
+        menu.Items.Add("Ver límites de Codex",null,(s,e)=>OpenDetails());menu.Items.Add("Actualizar",null,async(s,e)=>await Fetch());menu.Items.Add("Iniciar sesión / cambiar cuenta",null,async(s,e)=>await Login());menu.Items.Add(new ToolStripSeparator());menu.Items.Add("Reparar conexión automáticamente",null,async(s,e)=>await RepairConnection());menu.Items.Add("Configuración de iconos de Windows",null,(s,e)=>Process.Start(new ProcessStartInfo("ms-settings:taskbar"){UseShellExecute=true}));
+        var advanced=new ToolStripMenuItem("Avanzado");advanced.DropDownItems.Add("Elegir ejecutable manualmente…",null,(s,e)=>ChooseCodex());advanced.DropDownItems.Add("Copiar comando de instalación",null,(s,e)=>Clipboard.SetText("winget install --id OpenAI.Codex --exact --source winget"));menu.Items.Add(advanced);menu.Items.Add("Cerrar Codex Rings",null,(s,e)=>ExitThread());
+        advanced.DropDown.Renderer=new ToolStripProfessionalRenderer(new DarkMenuColors());advanced.DropDown.BackColor=Theme.Surface;advanced.DropDown.ForeColor=Theme.Text;
         menu.Renderer=new ToolStripProfessionalRenderer(new DarkMenuColors());menu.ShowImageMargin=false;menu.BackColor=Theme.Surface;menu.ForeColor=Theme.Text;menu.Font=new Font("Segoe UI",9.5f);foreach(ToolStripItem item in menu.Items)item.Padding=new Padding(8,5,8,5);
         host.Received=m=>{if(m.Msg==NativeRing.Callback){int message=m.LParam.ToInt32();if(message==0x202||message==0x203)OpenDetails();else if(message==0x205||message==0x7b){SetForegroundWindow(host.Handle);menu.Show(Cursor.Position);}}else if((uint)m.Msg==taskbarCreated)UpdateIcons(true);};
         refresh.Tick+=async(s,e)=>await Fetch();freshness.Tick+=(s,e)=>{if(OpenSignal!=null&&OpenSignal.WaitOne(0))OpenDetails();SyncGlyphs();if(lastFresh!=Fresh){UpdateIcons();UpdateDetails();WriteDiagnostics();}};UpdateIcons();refresh.Start();freshness.Start();host.BeginInvoke(new Action(async()=>{if(show)OpenDetails();await Fetch();}));}
@@ -99,9 +102,9 @@ sealed class Rings : ApplicationContext {
         if(details!=null&&!details.IsDisposed){details.Show();details.Activate();return;}
         details=new UsagePanel();
         details.StartWithWindows=AppSettings.StartWithWindows;
-        details.RefreshRequested+=async(s,e)=>await Fetch();
+        details.RefreshRequested+=async(s,e)=>{if(setupCancellation!=null)setupCancellation.Cancel();else await Fetch();};
         details.LoginRequested+=async(s,e)=>await Login();
-        details.CodexRequested+=(s,e)=>ChooseCodex();
+        details.CodexRequested+=(s,e)=>menu.Show(Cursor.Position);
         details.StartupChanged+=(s,e)=>{try{AppSettings.SetStartup(details.StartWithWindows);}catch(Exception ex){MessageBox.Show(details,ex.Message,"Codex Rings");details.StartWithWindows=AppSettings.StartWithWindows;}};
         var area=Screen.FromPoint(Cursor.Position).WorkingArea;
         details.Location=new Point(Math.Max(area.Left,area.Right-details.Width-16),Math.Max(area.Top,area.Bottom-details.Height-16));
@@ -114,7 +117,7 @@ sealed class Rings : ApplicationContext {
         details.Location=new Point(Math.Max(area.Left+8,area.Right-details.Width-16),Math.Max(area.Top+8,area.Bottom-details.Height-16));
         details.Activate();
     }
-    void UpdateDetails(){if(details!=null&&!details.IsDisposed)details.UpdateUsage(primary,weekly,Fresh,plan,error,fetched,busy);}
+    void UpdateDetails(){if(details!=null&&!details.IsDisposed){details.UpdateUsage(primary,weekly,Fresh,plan,error,fetched,busy);if(preparation!=null)details.UpdatePreparation(preparation);}}
     async void ChooseCodex()
     {
         if(busy)return;
@@ -128,6 +131,7 @@ sealed class Rings : ApplicationContext {
         busy=true;UpdateDetails();
         try
         {
+            if(!CodexSetup.IsReady())await PrepareRuntime(false);
             await EnsureClient();
             var result=await client.Call("account/login/start",new {type="chatgpt"});
             if(closing)return;
@@ -138,8 +142,13 @@ sealed class Rings : ApplicationContext {
             Process.Start(new ProcessStartInfo(url){UseShellExecute=true});
             error="Completa el inicio de sesi\u00f3n en tu navegador.";
         }
+        catch(OperationCanceledException)
+        {
+            error="La preparación se canceló. Puedes volver a intentarlo.";
+        }
         catch(Exception ex)
         {
+            error=ex.Message;
             if(!closing)MessageBox.Show(details,ex.Message,"Codex Rings",MessageBoxButtons.OK,MessageBoxIcon.Information);
         }
         finally
@@ -148,14 +157,47 @@ sealed class Rings : ApplicationContext {
             if(!closing){UpdateDetails();UpdateIcons();}
         }
     }
+    async Task PrepareRuntime(bool repair)
+    {
+        setupCancellation=new CancellationTokenSource();preparation="Preparando la conexión…";UpdateDetails();
+        var active=setupCancellation;
+        try
+        {
+            var progress=new Progress<SetupProgress>(p=>{if(!closing&&setupCancellation==active){preparation=p.Message;UpdateDetails();}});
+            await CodexSetup.Prepare(progress,setupCancellation.Token,repair);
+        }
+        finally
+        {
+            setupCancellation.Dispose();setupCancellation=null;preparation=null;
+        }
+    }
+    async Task RepairConnection()
+    {
+        if(busy||closing)return;busy=true;UpdateDetails();
+        try
+        {
+            if(client!=null)client.Dispose();client=null;
+            await PrepareRuntime(true);error=null;
+        }
+        catch(OperationCanceledException){error="La preparación se canceló. Puedes volver a intentarlo.";}
+        catch(Exception ex){error=ex.Message;}
+        finally{busy=false;UpdateDetails();}
+        if(error==null)await Fetch();
+    }
     void WriteDiagnostics(){if(!diagnostics)return;try{File.WriteAllText(Path.Combine(Data.Dir,"status.json"),Data.Json().Serialize(new {connected=Fresh,primary=primary==null?(double?)null:primary.Used,weekly=weekly==null?(double?)null:weekly.Used,updatedUtc=fetched,error=error,nativeTray=true,overlayVisible=host.Visible,fiveRegistered=five.Registered,weekRegistered=week.Registered,fiveBounds=five.Bounds(),weekBounds=week.Bounds(),fiveGlyph=fiveGlyph.Status(),weekGlyph=weekGlyph.Status()}));using(var b=five.ArtworkHidden?TaskbarGlyph.Draw(Fresh?primary:null):NativeRing.Draw(Fresh?primary:null))b.Save(Path.Combine(Data.Dir,"five-hours.png"));using(var b=week.ArtworkHidden?TaskbarGlyph.Draw(Fresh?weekly:null):NativeRing.Draw(Fresh?weekly:null))b.Save(Path.Combine(Data.Dir,"weekly.png"));}catch{}}
-    protected override void ExitThreadCore(){closing=true;refresh.Stop();freshness.Stop();if(client!=null)client.Dispose();fiveGlyph.Dispose();weekGlyph.Dispose();five.Dispose();week.Dispose();if(details!=null)details.Dispose();host.Dispose();menu.Dispose();refresh.Dispose();freshness.Dispose();base.ExitThreadCore();}
+    protected override void ExitThreadCore(){closing=true;if(setupCancellation!=null)setupCancellation.Cancel();refresh.Stop();freshness.Stop();if(client!=null)client.Dispose();fiveGlyph.Dispose();weekGlyph.Dispose();five.Dispose();week.Dispose();if(details!=null)details.Dispose();host.Dispose();menu.Dispose();refresh.Dispose();freshness.Dispose();base.ExitThreadCore();}
     internal static EventWaitHandle OpenSignal;
     [STAThread] public static void Main(string[] args)
     {
         SetProcessDPIAware();Directory.CreateDirectory(Data.Dir);Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
         if(args.Contains("--self-test")){try{Tests.Run();}catch(Exception ex){File.WriteAllText(Path.Combine(Data.Dir,"test-results.txt"),"FAIL "+ex.Message);Environment.ExitCode=1;}return;}
         if(args.Contains("--render-docs")){RenderDocs();return;}
+        if(args.Contains("--test-setup"))
+        {
+            try{var path=Task.Run(()=>CodexSetup.Prepare(null,CancellationToken.None,true)).GetAwaiter().GetResult();File.WriteAllText(Path.Combine(Data.Dir,"setup-test.txt"),"PASS official download, archive hash, binary hash and installation\n"+path);}
+            catch(Exception ex){File.WriteAllText(Path.Combine(Data.Dir,"setup-test.txt"),"FAIL "+ex.ToString());Environment.ExitCode=1;}
+            return;
+        }
         bool own;
         using(var mutex=new Mutex(true,"Local\\CodexRings.Singleton",out own))
         using(OpenSignal=new EventWaitHandle(false,EventResetMode.AutoReset,"Local\\CodexRings.Open"))
@@ -172,8 +214,10 @@ sealed class Rings : ApplicationContext {
             panel.Location=new Point(-2000,-2000);panel.Show();Application.DoEvents();
             panel.UpdateUsage(new WindowLimit {Used=38,Minutes=300,Reset=1795604400},new WindowLimit {Used=19,Minutes=10080,Reset=1796083200},true,"plus",null,DateTime.UtcNow,false);
             panel.SaveImage(Path.Combine(target,"usage-panel.png"));
-            panel.UpdateUsage(null,null,false,"","Selecciona codex.exe y conecta tu cuenta para comenzar.",DateTime.MinValue,false);
+            panel.UpdateUsage(null,null,false,"",null,DateTime.MinValue,false,false);
             panel.SaveImage(Path.Combine(target,"setup-panel.png"));
+            panel.UpdatePreparation("Descargando Codex oficial · 38%");
+            panel.SaveImage(Path.Combine(target,"preparation-panel.png"));
         }
     }
 }

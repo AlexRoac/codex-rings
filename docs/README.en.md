@@ -9,10 +9,12 @@ Two white progress rings for your Codex plan limits, directly in the Windows not
 ## Requirements and setup
 
 - Windows 11 x64 and .NET Framework 4.8 or later.
-- An official Codex installation supporting `app-server`; the Codex binary is not bundled.
+- Internet for automatic setup. Rings detects Codex or downloads the official runtime when you click **Preparar y conectar**.
 - A ChatGPT account with Codex plan limits. API-key-only authentication may not return plan quotas.
 
-Download `CodexRings.exe`, place it in a stable folder and launch it. Use your existing Codex session, or click **Conectar cuenta** to sign in through the official browser flow. Use **Configurar Codex** to select `codex.exe` if it is not detected. The UI is currently in Spanish.
+Download `CodexRings.exe`, place it in a stable folder and launch it. Use your existing Codex session, or click **Preparar y conectar**. Rings prepares the official Codex runtime and opens the browser sign-in flow. No terminal, Node.js, administrator rights or manual file selection are needed. The UI is currently in Spanish.
+
+Automatic setup downloads from OpenAI's official GitHub release, verifies both archive and executable SHA-256 hashes, and stores the runtime in your user profile. Progress and cancellation are available. The tested download is approximately 223 MB and takes 417 MB installed; future releases can differ. Use **Opciones > Reparar conexión automáticamente** if setup needs repair. Manual executable selection and an optional WinGet command are available under **Avanzado**.
 
 Drag both icons from the hidden-icons menu onto the visible taskbar. Windows controls their order; hover over each one to identify its quota. Closing the panel leaves Rings running. Right-click a ring and choose **Cerrar Codex Rings** to exit.
 
@@ -28,7 +30,7 @@ Signing in changes the shared Codex session on your machine. Rings does not bund
 
 The enlarged 24 px rings are transparent child graphics attached to the taskbar, centered inside native notification-icon slots. If this integration is unavailable, Rings falls back to normal small tray icons. It does not replace Explorer or inject code. Windows taskbar modifications and platform updates may affect compatibility.
 
-Live usage was verified with Codex CLI `0.171.0-alpha.13.2`. Other versions are not guaranteed. The v1 executable is unsigned and does not auto-update. SHA-256 checksums are attached to every release.
+Automatic setup and live usage were verified with Codex CLI `0.172.0`; usage was also verified with `0.171.0-alpha.13.2`. Other versions are not guaranteed. The Rings executable is unsigned and does not auto-update. SHA-256 checksums are attached to every release.
 
 ## Build
 

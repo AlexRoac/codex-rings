@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.1
+
+- Preparación automática de Codex desde el botón **Preparar y conectar**, sin buscar ejecutables ni utilizar la terminal.
+- Descarga desde la publicación oficial de OpenAI, con comprobación SHA-256 del ZIP y del ejecutable.
+- Progreso, cancelación y reparación automática de la conexión desde Opciones.
+- Instalación en el perfil del usuario, sin administrador ni cambios en el PATH.
+- Búsqueda manual y comando alternativo disponibles únicamente en Avanzado.
+- Corregidos los restos cuadrados y azules del dibujo estándar de los botones de Windows.
+
 ## 1.0.0
 
 Primera versión pública de Codex Rings para Windows x64.

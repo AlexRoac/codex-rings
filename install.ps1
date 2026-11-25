@@ -14,7 +14,7 @@ foreach ($runningApp in $runningApps) {
 }
 Copy-Item -LiteralPath $binaryPath -Destination (Join-Path $installDir 'CodexRings.exe') -Force
 $codexCommand = Get-Command codex -ErrorAction SilentlyContinue
-if ($codexCommand) { Set-Content -LiteralPath (Join-Path $installDir 'codex-path.txt') -Value $codexCommand.Source }
+if ($codexCommand -and -not (Test-Path -LiteralPath (Join-Path $installDir 'codex-path.txt'))) { Set-Content -LiteralPath (Join-Path $installDir 'codex-path.txt') -Value $codexCommand.Source }
 $shellObject = New-Object -ComObject WScript.Shell
 $startupDir = [Environment]::GetFolderPath('Startup')
 $desktopDir = [Environment]::GetFolderPath('Desktop')

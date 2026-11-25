@@ -11,8 +11,8 @@ La publicación es reproducible desde el código del tag y no utiliza archivos d
 5. Crea y sube el tag correspondiente:
 
 ```powershell
-git tag -a v1.0.0 -m "Codex Rings v1.0.0"
-git push origin v1.0.0
+git tag -a v1.0.1 -m "Codex Rings v1.0.1"
+git push origin v1.0.1
 ```
 
 El workflow **Publish release** compila en Windows, ejecuta las pruebas, comprueba que el tag coincide con la versión del ejecutable y publica el `.exe`, el ZIP y `SHA256SUMS.txt`.
@@ -22,9 +22,9 @@ El workflow **Publish release** compila en Windows, ejecuta las pruebas, comprue
 Si Actions no está disponible, ejecuta `./package.ps1`, crea el tag y usa GitHub > Releases > Draft a new release. Elige el tag y adjunta únicamente estos archivos de `dist`:
 
 - `CodexRings.exe`
-- `CodexRings-v1.0.0-win-x64.zip`
+- `CodexRings-v1.0.1-win-x64.zip`
 - `SHA256SUMS.txt`
 
-Usa `docs/RELEASE-v1.0.0.md` como descripción. Los archivos `.exe` y ZIP se adjuntan a Releases y están ignorados por Git. No subas `%LOCALAPPDATA%\CodexRings`, `.codex`, credenciales o los archivos de diagnósticos de una cuenta real.
+Usa `docs/RELEASE-v1.0.1.md` como descripción. Los archivos `.exe` y ZIP se adjuntan a Releases y están ignorados por Git. No subas `%LOCALAPPDATA%\CodexRings`, `.codex`, credenciales o los archivos de diagnósticos de una cuenta real.
 
 La compilación no lleva firma Authenticode. Las sumas publicadas corresponden al binario adjunto a cada release; una recompilación local puede producir otra suma aunque el código no haya cambiado.

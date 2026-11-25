@@ -35,7 +35,7 @@ Dos círculos blancos muestran cuánto has usado de tus límites de **cinco hora
 - **Círculos de 24 px**, números de 10 px y fondo transparente cuando la integración ampliada está disponible.
 - **Panel oscuro:** porcentaje usado, porcentaje disponible, plan y reinicio de cada límite.
 - **Inicio de sesión oficial** en el navegador o uso de tu sesión existente.
-- **Detección de Codex** y selección manual de `codex.exe`.
+- **Preparación automática de Codex:** detecta una instalación existente o descarga la versión oficial, con progreso y verificación SHA-256.
 - **Inicio automático opcional** desde el panel.
 - **Una sola instancia:** volver a abrir el `.exe` muestra el panel de la app que ya está ejecutándose.
 - **Sin telemetría propia**, sin claves de API dentro del ejecutable y sin suscripción adicional de Rings.
@@ -48,13 +48,13 @@ Codex Rings es un proyecto independiente. No está afiliado, patrocinado ni desa
 | --- | --- |
 | Sistema | Windows 11 x64. La v1 no se ha validado en Windows 10, ARM64 o barras de tareas modificadas. |
 | Runtime | .NET Framework 4.8 o posterior. No requiere instalar un SDK para usar el `.exe`. |
-| Codex | Una instalación oficial que incluya `codex.exe` y admita `app-server`. |
+| Codex | La app lo detecta o lo prepara automáticamente cuando pulsas Preparar y conectar. No necesitas instalar Node.js ni buscar un ejecutable. |
 | Cuenta | Una cuenta de ChatGPT con cuotas de Codex disponibles. Una clave de API por sí sola no ofrece estos límites de plan. |
 | Conexión | Internet para iniciar sesión y consultar los límites. |
 
-La conexión en vivo se comprobó con Codex CLI `0.171.0-alpha.13.2`. El protocolo de Codex puede cambiar entre versiones; la compatibilidad con todas ellas no está garantizada.
+La preparación automática y la conexión en vivo se comprobaron con Codex CLI oficial `0.172.0`; también se verificó la lectura con `0.171.0-alpha.13.2`. El protocolo de Codex puede cambiar entre versiones; la compatibilidad con todas ellas no está garantizada.
 
-**El binario de Codex no viene incluido.** Puedes instalarlo siguiendo la [documentación oficial de Codex CLI](https://developers.openai.com/codex/cli/), o usar el que incluye la extensión oficial de Codex para Visual Studio Code.
+El binario de Codex no viene dentro de la descarga de Rings. Si hace falta, el botón **Preparar y conectar** lo descarga desde las [publicaciones oficiales de OpenAI](https://github.com/openai/codex/releases), comprueba el SHA-256 del ZIP y del ejecutable, y lo guarda en tu perfil. No requiere administrador ni modifica el PATH. La versión probada descarga aproximadamente 223 MB y ocupa 417 MB instalada; estos tamaños pueden cambiar.
 
 ## Descargar
 
@@ -63,7 +63,7 @@ Abre [Releases](https://github.com/AlexRoac/codex-rings/releases/latest) y elige
 | Archivo | Para qué sirve |
 | --- | --- |
 | `CodexRings.exe` | Versión portable. Descarga, guarda en una carpeta estable y ejecuta. |
-| `CodexRings-v1.0.0-win-x64.zip` | Ejecutable, instalador local opcional, documentación y licencia. |
+| `CodexRings-v1.0.1-win-x64.zip` | Ejecutable, instalador local opcional, documentación y licencia. |
 | `SHA256SUMS.txt` | Sumas SHA-256 de los archivos publicados. |
 
 Para comprobar una descarga en PowerShell:
@@ -78,22 +78,30 @@ Compara el resultado con `SHA256SUMS.txt` de **esa misma release**. La v1 no inc
 
 1. Ejecuta **CodexRings.exe**. Se abrirá el panel y aparecerán los dos indicadores en el área de notificación.
 2. Si ya tienes una sesión compatible de Codex, espera la primera lectura. Verás tu plan, porcentajes y reinicios.
-3. Si Codex no se detecta, pulsa **Configurar Codex** y selecciona el ejecutable oficial `codex.exe`.
-4. Pulsa **Conectar cuenta** y completa el inicio de sesión en el navegador. Rings no pide tu contraseña.
+3. Si es tu primera vez, pulsa **Preparar y conectar**. La app prepara Codex automáticamente y muestra el progreso. Puedes cancelar y volver a intentarlo.
+4. Completa el inicio de sesión en el navegador. Si ya hay una instalación preparada, el botón se llama **Conectar cuenta**. Rings no pide tu contraseña.
 5. Si Windows guarda los indicadores en el menú de iconos ocultos, abre la flecha y **arrastra ambos a la barra visible**. También puedes gestionarlos en Configuración > Personalización > Barra de tareas.
 
 <details>
 <summary>Ver el panel antes de conectar una cuenta</summary>
 
-<img src="docs/images/setup-panel.png" width="448" alt="Panel de primer uso, sin datos de cuenta, con botones para conectar y configurar Codex" />
+<img src="docs/images/setup-panel.png" width="448" alt="Panel de primer uso, con preparación automática e inicio de sesión en un botón" />
 
 </details>
 
-### Detectar el ejecutable de Codex
+### Preparación automática y opciones avanzadas
 
-La app busca una ruta guardada, un `codex.exe` junto a Rings, la extensión oficial de VS Code, el `PATH` y las ubicaciones habituales del paquete npm de Codex. Si tu instalación está en otro lugar, usa **Configurar Codex**.
+La app busca una ruta guardada, su instalación administrada, un `codex.exe` junto a Rings, la extensión oficial de VS Code, el `PATH` y las ubicaciones habituales del paquete npm de Codex. Si no encuentra una instalación, el botón principal la prepara. No tienes que buscar archivos.
 
-Selecciona un ejecutable oficial: Rings lo iniciará en modo `app-server`. No selecciones `node.exe`, un acceso directo, un archivo `.cmd` o un ejecutable de origen desconocido.
+Si la conexión deja de funcionar, abre **Opciones > Reparar conexión automáticamente**. Los archivos se guardan en `%LOCALAPPDATA%\CodexRings\runtime`. La descarga utiliza la versión estable publicada por OpenAI y no instala una sesión ni una cuenta.
+
+Para usuarios avanzados, **Opciones > Avanzado** permite elegir manualmente un ejecutable oficial o copiar este comando alternativo para instalar Codex con WinGet:
+
+```powershell
+winget install --id OpenAI.Codex --exact --source winget
+```
+
+Vuelve a abrir Rings después de una instalación externa. La selección manual está disponible como alternativa; no forma parte de la configuración normal.
 
 ### Instalar en una carpeta local
 
@@ -159,13 +167,15 @@ Windows administra el orden y la visibilidad. Rings ocupa el área de notificaci
 
 **No aparecen los círculos.** Abre el menú de la flecha y busca los dos iconos de Rings. Arrástralos al área visible. Comprueba que la app no esté cerrada desde su menú.
 
-**Aparece una raya.** Abre el panel. Revisa la conexión, selecciona `codex.exe` si no se encuentra e inicia sesión. Una cuenta autenticada solo con API key puede no devolver las cuotas del plan.
+**Aparece una raya.** Abre el panel y pulsa Preparar y conectar o Conectar cuenta. Si ya funcionaba, usa Opciones > Reparar conexión automáticamente. Una cuenta autenticada solo con API key puede no devolver las cuotas del plan.
 
 **No coincide con una captura o con otro panel.** Rings muestra uso, no disponibilidad. Comprueba la misma cuenta y ventana de cuota, y pulsa Actualizar. Puede haber hasta 30 segundos entre lecturas automáticas.
 
 **Los iconos se ven pequeños.** Puede estar activa la alternativa nativa: ocurre si no hay dos espacios visibles distintos o si Windows impide el dibujo ampliado. Coloca ambos iconos fuera del menú oculto. La v1 se diseñó para la barra estándar de Windows 11.
 
-**Se movió o actualizó Codex.** Abre Configurar Codex y vuelve a seleccionar el ejecutable. La ruta anterior puede haber quedado obsoleta.
+**Se movió o actualizó Codex.** Usa Opciones > Reparar conexión automáticamente. Rings puede preparar su propia copia oficial sin tener que buscar la instalación anterior.
+
+**La preparación no se completa.** Revisa la conexión y el espacio libre, cancela y vuelve a intentarlo. Si GitHub limita temporalmente las descargas, prueba más tarde o utiliza el comando alternativo de Avanzado. Un archivo que no pasa la verificación no se ejecuta.
 
 **El navegador terminó el acceso, pero el panel no cambia.** Espera el siguiente intervalo o pulsa Actualizar. Asegúrate de completar el flujo en el mismo equipo donde corre Rings.
 
@@ -218,6 +228,7 @@ Se escriben `status.json` e imágenes de los indicadores en `%LOCALAPPDATA%\Code
 | `TaskbarGlyph.cs` | Dibujo ampliado dentro de los espacios de la barra. |
 | `UsagePanel.cs` | Panel y componentes visuales. |
 | `AppSettings.cs` | Selección de Codex e inicio automático. |
+| `CodexSetup.cs` | Preparación automática, descarga, cancelación y verificación del runtime oficial. |
 | `build.ps1`, `test.ps1`, `package.ps1` | Compilación, verificación y empaquetado. |
 | `.github/workflows` | Verificación en Windows y publicación desde tags. |
 

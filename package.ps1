@@ -1,6 +1,6 @@
 ﻿param([switch]$SkipBuild)
 $ErrorActionPreference = 'Stop'
-$version = '1.0.0'
+$version = '1.0.1'
 if (-not $SkipBuild) { & (Join-Path $PSScriptRoot 'build.ps1') }
 & (Join-Path $PSScriptRoot 'test.ps1')
 $distDir = Join-Path $PSScriptRoot 'dist'

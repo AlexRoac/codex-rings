@@ -26,6 +26,8 @@ Panel base: 448 × 620 píxeles lógicos, con escalado DPI. Márgenes de 24 px, 
 - El porcentaje es **usado**, tanto en los círculos como en el panel.
 - El estado desconectado muestra rayas, nunca un cero supuesto.
 - La acción principal conecta la cuenta o permite cambiarla.
+- Si no hay una instalación de Codex, la acción se llama Preparar y conectar: descarga oficial, verificación y acceso en un mismo flujo. El usuario no necesita buscar un ejecutable.
+- El progreso permite cancelar. La selección manual y el comando alternativo se reservan para Avanzado.
 - Cerrar el panel conserva la app en el área de notificación.
 - Escape cierra el panel; Tab recorre los controles nativos.
 - No se usa animación continua ni efectos decorativos.

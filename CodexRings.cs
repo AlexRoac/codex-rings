@@ -30,6 +30,7 @@ sealed class CodexClient : IDisposable {
     public static string FindCodex() {
         var cfg=Path.Combine(Data.Dir,"codex-path.txt"); if(File.Exists(cfg) && File.Exists(File.ReadAllText(cfg).Trim())) return File.ReadAllText(cfg).Trim();
         var portable=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"codex.exe");if(File.Exists(portable))return portable;
+        var managed=Path.Combine(Data.Dir,"runtime");if(Directory.Exists(managed))foreach(var d in Directory.GetDirectories(managed).OrderByDescending(x=>Directory.GetLastWriteTimeUtc(x))){var p=Path.Combine(d,"codex.exe");if(File.Exists(p))return p;}
         var root=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),".vscode","extensions");
         if(Directory.Exists(root)) foreach(var d in Directory.GetDirectories(root,"openai.chatgpt-*").OrderByDescending(x=>Directory.GetLastWriteTimeUtc(x))) { var p=Path.Combine(d,"bin","windows-x86_64","codex.exe"); if(File.Exists(p))return p; }
         foreach(var d in (Environment.GetEnvironmentVariable("PATH")??"").Split(';')) { try { var p=Path.Combine(d,"codex.exe"); if(File.Exists(p))return p; }catch{} }
@@ -41,7 +42,7 @@ sealed class CodexClient : IDisposable {
         proc=new Process { StartInfo=new ProcessStartInfo(FindCodex(),"app-server") { UseShellExecute=false,CreateNoWindow=true,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true,WorkingDirectory=Data.Dir }, EnableRaisingEvents=true };
         proc.OutputDataReceived+=(s,e)=>{ if(e.Data==null){Fail();return;} try {var m=Data.Json().DeserializeObject(e.Data); var id=Data.Get(m,"id"); if(id!=null){TaskCompletionSource<object> t=null;lock(gate){if(pending.TryGetValue(Convert.ToInt32(id),out t))pending.Remove(Convert.ToInt32(id));} if(t!=null){if(Data.Get(m,"error")!=null)t.TrySetException(new Exception("Codex no pudo consultar la cuenta. Reintenta o inicia sesión."));else t.TrySetResult(Data.Get(m,"result"));}} else {var method=Convert.ToString(Data.Get(m,"method")); if(method=="account/login/completed"||method=="account/updated") {var h=Changed;if(h!=null)h();}} }catch{} };
         proc.ErrorDataReceived+=(s,e)=>{}; proc.Exited+=(s,e)=>Fail();proc.Start();proc.BeginOutputReadLine();proc.BeginErrorReadLine();
-        await Call("initialize",new {clientInfo=new {name="codex_rings",version="1.0.0"},capabilities=new {experimentalApi=true}}); Send(new {method="initialized"});
+        await Call("initialize",new {clientInfo=new {name="codex_rings",version="1.0.1"},capabilities=new {experimentalApi=true}}); Send(new {method="initialized"});
     }
     void Fail(){TaskCompletionSource<object>[] waiting;lock(gate){waiting=pending.Values.ToArray();pending.Clear();}foreach(var t in waiting)t.TrySetException(new Exception("Se desconectó el servidor de Codex."));}
     void Send(object o) { lock(gate){proc.StandardInput.WriteLine(Data.Json().Serialize(o));proc.StandardInput.Flush();} }
@@ -73,6 +74,31 @@ static class Tests
         }
         var oldReset = new WindowLimit { Used = 70, Minutes = 300, Reset = 1 };
         check(oldReset.Used == 70, "past reset time does not invent a new usage value");
+        check(CodexSetup.OfficialDownload("https://github.com/openai/codex/releases/download/rust-v0.172.0/codex.exe"), "setup accepts the official release origin");
+        check(!CodexSetup.OfficialDownload("https://github.com.evil.example/openai/codex/releases/download/v1/codex.exe"), "setup rejects a lookalike download host");
+        check(!CodexSetup.OfficialDownload("https://github.com/another-owner/codex/releases/download/v1/codex.exe"), "setup rejects another release owner");
+        check(!CodexSetup.OfficialDownload("http://github.com/openai/codex/releases/download/v1/codex.exe"), "setup requires HTTPS");
+        bool invalidDigestRejected = false;
+        try { CodexSetup.Digest(Data.Json().DeserializeObject("{\"digest\":null}")); }
+        catch (Exception) { invalidDigestRejected = true; }
+        check(invalidDigestRejected, "setup refuses downloads without a SHA-256 digest");
+        using (var cancellation = new CancellationTokenSource())
+        {
+            cancellation.Cancel();
+            bool canceled = false;
+            try { CodexSetup.Prepare(null, cancellation.Token, true).GetAwaiter().GetResult(); }
+            catch (OperationCanceledException) { canceled = true; }
+            check(canceled, "setup cancels before downloading or changing configuration");
+        }
+        using (var button = new QuietButton("Actualizar"))
+        {
+            button.Size = new Size(124,40);
+            using (var bitmap = new Bitmap(124,40))
+            {
+                button.DrawToBitmap(bitmap,new Rectangle(0,0,124,40));
+                check(bitmap.GetPixel(0,0).ToArgb() == Theme.Background.ToArgb(), "rounded button corners use the panel background");
+            }
+        }
         File.WriteAllLines(Path.Combine(Data.Dir, "test-results.txt"), results);
     }
 }
