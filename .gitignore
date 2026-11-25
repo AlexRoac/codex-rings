@@ -1,0 +1,19 @@
+/bin/
+/dist/
+/CodexRings.exe
+*.pdb
+*.user
+*.suo
+.vs/
+.vscode/
+.DS_Store
+Thumbs.db
+# Local state and credentials never belong in the repository.
+auth.json
+codex-path.txt
+settings.json
+status.json
+test-results.txt
+.env
+.env.*
+!.env.example
